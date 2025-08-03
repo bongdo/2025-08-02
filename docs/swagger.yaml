@@ -1,0 +1,114 @@
+basePath: /
+definitions:
+  task.Status:
+    enum:
+    - created
+    - processing
+    - done
+    - error
+    type: string
+    x-enum-varnames:
+    - StatusCreated
+    - StatusProcessing
+    - StatusDone
+    - StatusError
+  task.Task:
+    properties:
+      error_details:
+        type: string
+      file_urls:
+        items:
+          type: string
+        type: array
+      id:
+        type: string
+      result_url:
+        type: string
+      status:
+        $ref: '#/definitions/task.Status'
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: This is a server for archiving files from URLs.
+  title: File Archiver API
+  version: "1.0"
+paths:
+  /tasks:
+    post:
+      consumes:
+      - application/json
+      description: creates a new task for archiving files
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/task.Task'
+        "503":
+          description: server is busy, please try again later
+          schema:
+            type: string
+      summary: Create a new task
+      tags:
+      - tasks
+  /tasks/{id}:
+    get:
+      consumes:
+      - application/json
+      description: get the status of a task by ID
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/task.Task'
+        "404":
+          description: task not found
+          schema:
+            type: string
+      summary: Get task status
+      tags:
+      - tasks
+  /tasks/{id}/files:
+    post:
+      consumes:
+      - application/json
+      description: adds a file URL to a task for archiving
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: File URL
+        in: body
+        name: url
+        required: true
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+        "400":
+          description: invalid request body
+          schema:
+            type: string
+        "404":
+          description: task not found
+          schema:
+            type: string
+      summary: Add a file to a task
+      tags:
+      - tasks
+swagger: "2.0"
