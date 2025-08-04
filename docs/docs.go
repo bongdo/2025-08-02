@@ -15,6 +15,41 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/archives/{filename}": {
+            "get": {
+                "description": "downloads the zip file for a given task ID",
+                "produces": [
+                    "application/zip"
+                ],
+                "tags": [
+                    "archives"
+                ],
+                "summary": "Download an archived file",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Archive filename (e.g., taskID.zip)",
+                        "name": "filename",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Archive file",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "404": {
+                        "description": "archive not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/tasks": {
             "post": {
                 "description": "creates a new task for archiving files",
