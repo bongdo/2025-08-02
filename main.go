@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -31,11 +32,13 @@ func main() {
 
 	taskManager := handlers.NewTaskManager(cfg)
 
+	go cleanupOldArchives(10 * time.Minute)
+
 	r := mux.NewRouter()
 	r.HandleFunc("/tasks", taskManager.CreateTaskHandler).Methods("POST")
 	r.HandleFunc("/tasks/{id}/files", taskManager.AddFileHandler).Methods("POST")
 	r.HandleFunc("/tasks/{id}", taskManager.GetTaskStatusHandler).Methods("GET")
-	r.PathPrefix("/archives/").Handler(http.StripPrefix("/archives/", http.FileServer(http.Dir("."))))
+	r.HandleFunc("/archives/{filename}", taskManager.ServeArchiveHandler).Methods("GET")
 	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
 
 	srv := &http.Server{
@@ -62,4 +65,25 @@ func main() {
 	}
 
 	log.Println("Server exiting")
+}
+
+func cleanupOldArchives(maxAge time.Duration) {
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			if !info.IsDir() && filepath.Ext(path) == ".zip" {
+				if time.Since(info.ModTime()) > maxAge {
+					log.Printf("Deleting old archive: %s", path)
+					os.Remove(path)
+				}
+			}
+			return nil
+		})
+	}
 }
