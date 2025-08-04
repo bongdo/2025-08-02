@@ -34,6 +34,29 @@ info:
   title: File Archiver API
   version: "1.0"
 paths:
+  /archives/{filename}:
+    get:
+      description: downloads the zip file for a given task ID
+      parameters:
+      - description: Archive filename (e.g., taskID.zip)
+        in: path
+        name: filename
+        required: true
+        type: string
+      produces:
+      - application/zip
+      responses:
+        "200":
+          description: Archive file
+          schema:
+            type: file
+        "404":
+          description: archive not found
+          schema:
+            type: string
+      summary: Download an archived file
+      tags:
+      - archives
   /tasks:
     post:
       consumes:
