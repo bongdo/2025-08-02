@@ -18,19 +18,19 @@ import (
 type Status string
 
 const (
-	StatusCreated   Status = "created"
+	StatusCreated    Status = "created"
 	StatusProcessing Status = "processing"
-	StatusDone      Status = "done"
-	StatusError     Status = "error"
+	StatusDone       Status = "done"
+	StatusError      Status = "error"
 )
 
 type Task struct {
-	ID          string   `json:"id"`
-	Status      Status   `json:"status"`
-	FileURLs    []string `json:"file_urls"`
-	ResultURL   string   `json:"result_url,omitempty"`
+	ID           string   `json:"id"`
+	Status       Status   `json:"status"`
+	FileURLs     []string `json:"file_urls"`
+	ResultURL    string   `json:"result_url,omitempty"`
 	ErrorDetails string   `json:"error_details,omitempty"`
-	mutex       sync.Mutex
+	mutex        sync.Mutex
 }
 
 func NewTask() *Task {
@@ -45,6 +45,13 @@ func (t *Task) AddFile(url string) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 	t.FileURLs = append(t.FileURLs, url)
+}
+
+func (t *Task) SetResultURL() {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+	zipFileName := fmt.Sprintf("%s.zip", t.ID)
+	t.ResultURL = fmt.Sprintf("/archives/%s", zipFileName)
 }
 
 func (t *Task) Process(allowedExtensions []string) {
@@ -112,7 +119,6 @@ func (t *Task) Process(allowedExtensions []string) {
 	}
 
 	t.Status = StatusDone
-	t.ResultURL = fmt.Sprintf("/archives/%s", zipFileName)
 	log.Printf("Finished processing task %s", t.ID)
 }
 
@@ -129,21 +135,22 @@ func isAllowedExtension(fileURL string, allowedExtensions []string) bool {
 		return false
 	}
 
-	ext := strings.ToLower(filepath.Ext(u.Path))
+	path := u.Path
+	ext := strings.ToLower(filepath.Ext(path))
 
-	// Если в пути нет расширения, попробуем найти его в параметрах
 	if ext == "" {
-		q := u.Query()
-		for _, vals := range q {
-			for _, val := range vals {
-				if e := strings.ToLower(filepath.Ext(val)); e != "" {
-					ext = e
-					break
-				}
-			}
-			if ext != "" {
-				break
-			}
+		resp, err := http.Head(fileURL)
+		if err != nil {
+			return false
+		}
+		defer resp.Body.Close()
+
+		contentType := resp.Header.Get("Content-Type")
+		switch contentType {
+		case "application/pdf":
+			ext = ".pdf"
+		case "image/jpeg":
+			ext = ".jpeg"
 		}
 	}
 
