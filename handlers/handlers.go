@@ -4,8 +4,11 @@ import (
 	"2025-08-02/config"
 	"2025-08-02/task"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"strings"
 	"sync"
 
 	"github.com/gorilla/mux"
@@ -96,6 +99,7 @@ func (tm *TaskManager) AddFileHandler(w http.ResponseWriter, r *http.Request) {
 
 	if len(t.FileURLs) >= tm.config.MaxFilesPerTask {
 		log.Printf("Task %s reached max files, starting processing", taskID)
+		t.SetResultURL()
 		tm.concurrentTaskSema <- struct{}{}
 		go func() {
 			defer func() { <-tm.concurrentTaskSema }()
@@ -133,4 +137,38 @@ func (tm *TaskManager) GetTaskStatusHandler(w http.ResponseWriter, r *http.Reque
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(t)
+}
+
+// ServeArchiveHandler serves the archived zip file
+// @Summary      Download an archived file
+// @Description  downloads the zip file for a given task ID
+// @Tags         archives
+// @Produce      application/zip
+// @Param        filename   path      string  true  "Archive filename (e.g., taskID.zip)"
+// @Success      200 {file}  file "Archive file"
+// @Failure      404 {string} string "archive not found"
+// @Router       /archives/{filename} [get]
+func (tm *TaskManager) ServeArchiveHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	filename := vars["filename"]
+	log.Printf("ServeArchiveHandler called for filename: %s", filename)
+
+	// Basic security check to prevent directory traversal
+	if strings.Contains(filename, "..") || strings.Contains(filename, "/") {
+		http.Error(w, "invalid filename", http.StatusBadRequest)
+		return
+	}
+
+	filePath := filename // Assuming archives are in the current directory
+
+	_, err := os.Stat(filePath)
+	if os.IsNotExist(err) {
+		log.Printf("Archive file %s not found", filePath)
+		http.Error(w, "archive not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	http.ServeFile(w, r, filePath)
 }
